@@ -1,49 +1,44 @@
 import {Injectable} from "@nestjs/common";
-import {S3} from "aws-sdk";
+import {createPresignedPost, PresignedPostOptions} from "@aws-sdk/s3-presigned-post";
+import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
+import {GetObjectCommand, PutObjectTaggingCommandInput, S3} from "@aws-sdk/client-s3";
 import {PresignedURL} from "../api/file/dto/presignedURL";
-import {PutObjectTaggingRequest} from "aws-sdk/clients/s3";
-
-import("dotenv/config").catch(e => null);
+import {ConfigService} from "@nestjs/config";
 
 @Injectable()
 export class S3Service {
 	private readonly client: S3;
 	private readonly bucketName: string;
-
-	constructor() {
+	
+	constructor(configService: ConfigService) {
 		this.client = new S3({
-			credentials: {accessKeyId: process.env.AWS_API_KEY, secretAccessKey: process.env.AWS_SECRET_KEY},
-			region: process.env.AWS_REGION,
+			credentials: {accessKeyId: configService.get("AWS_API_KEY"), secretAccessKey: configService.get("AWS_SECRET_KEY")},
+			region: configService.get("AWS_REGION"),
 			apiVersion: "2006-03-01",
 		});
-		this.bucketName = process.env.AWS_BUCKET_NAME;
+		this.bucketName = configService.get("AWS_BUCKET_NAME");
 
 		void this.testConnection();
 	}
 
 	async testConnection() {
 		try {
-			await new Promise((resolve, reject) => this.client.getObject({Bucket: this.bucketName, Key: "NotExistingKey"}, (err, data) => {
-				if (err) reject(err);
-				resolve(data);
-			}));
+			await this.client.getObject({Bucket: this.bucketName, Key: "NotExistingKey"});
 		} catch (e) {
-			if (e.code !== "NoSuchKey") throw new Error("Couldn't connect to AWS S3!");
+			if (e.name !== "NoSuchKey") throw new Error("Couldn't connect to AWS S3!");
 		}
 	}
 
 	async createPresignedPostURL(user_id: number, file_id: number | string, size: number): Promise<PresignedURL | null> {
-		const parameters: S3.PresignedPost.Params = {
+		const parameters: PresignedPostOptions = {
 			Bucket: this.bucketName,
-			Fields: {
-				key: `${user_id}/${file_id}`,
-			},
+			Key: `${user_id}/${file_id}`,
 			Expires: 1800,
 			Conditions: [["content-length-range", 0, size]],
 		};
 
 		try {
-			const {url, fields} = await this.client.createPresignedPost(parameters);
+			const {url, fields} = await createPresignedPost(this.client, parameters);
 
 			return {
 				url,
@@ -67,11 +62,12 @@ export class S3Service {
 		const parameters = {
 			Bucket: this.bucketName,
 			Key: key,
-			Expires: 1800,
 		};
 
 		try {
-			return await this.client.getSignedUrlPromise("getObject", parameters);
+			return await getSignedUrl(this.client, new GetObjectCommand(parameters), {
+				expiresIn: 1800,
+			});
 		} catch (e) {
 			console.log(e);
 			return null;
@@ -79,14 +75,14 @@ export class S3Service {
 	}
 
 	async tagObject(key: string, tag: string, value: string): Promise<boolean> {
-		const params: PutObjectTaggingRequest = {
+		const params: PutObjectTaggingCommandInput = {
 			Bucket: this.bucketName,
 			Key: key,
 			Tagging: {TagSet: [{Key: tag, Value: value}]},
 		};
 
 		try {
-			await new Promise((resolve, reject) => this.client.putObjectTagging(params, (err, data) => err ? reject(err) : resolve(data)));
+			await this.client.putObjectTagging(params);
 		} catch (e) {
 			console.log(e);
 			return false;

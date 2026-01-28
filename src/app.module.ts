@@ -5,6 +5,7 @@ import * as path from "path";
 import {UserModule} from "./api/user/user.module";
 import {ServiceModule} from "./services/service.module";
 import {FileModule} from "./api/file/file.module";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
 	imports: [
@@ -18,6 +19,9 @@ import {FileModule} from "./api/file/file.module";
 		ServiceModule,
 		UserModule,
 		FileModule,
+		ConfigModule.forRoot({
+  			isGlobal: true,
+		})
 	],
 })
 export class AppModule {}

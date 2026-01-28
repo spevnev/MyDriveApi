@@ -1,14 +1,17 @@
 import {Injectable} from "@nestjs/common";
+import {ConfigService} from "@nestjs/config";
 import {Pool, QueryResult} from "pg";
 
 @Injectable()
 export class DBService {
+	private readonly databaseUrl: string;
 	private readonly client: Pool;
 
-	constructor() {
+	constructor(configService: ConfigService) {
+		this.databaseUrl = configService.get("DATABASE_URL");
 		this.client = new Pool({
-			connectionString: process.env.DATABASE_URL,
-			ssl: {rejectUnauthorized: false},
+			connectionString: this.databaseUrl,
+			ssl: false,
 			max: 20,
 		});
 
@@ -23,7 +26,7 @@ export class DBService {
 
 	async testConnection(): Promise<void> {
 		const res = await this.query("select now()");
-		if (res === null) throw new Error(`Couldn't connect to DB using: ${process.env.DATABASE_URL}`);
+		if (res === null) throw new Error(`Couldn't connect to DB using: ${this.databaseUrl}`);
 	}
 
 	async createTables(): Promise<void> {
