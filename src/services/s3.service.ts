@@ -1,7 +1,7 @@
 import {Injectable} from "@nestjs/common";
 import {createPresignedPost, PresignedPostOptions} from "@aws-sdk/s3-presigned-post";
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
-import {GetObjectCommand, PutObjectTaggingCommandInput, S3} from "@aws-sdk/client-s3";
+import {GetObjectCommand, PutObjectTaggingCommandInput, S3, S3ClientConfig} from "@aws-sdk/client-s3";
 import {PresignedURL} from "../api/file/dto/presignedURL";
 import {ConfigService} from "@nestjs/config";
 
@@ -9,13 +9,21 @@ import {ConfigService} from "@nestjs/config";
 export class S3Service {
 	private readonly client: S3;
 	private readonly bucketName: string;
-	
+
 	constructor(configService: ConfigService) {
-		this.client = new S3({
+		const config: S3ClientConfig = {
 			credentials: {accessKeyId: configService.get("AWS_API_KEY"), secretAccessKey: configService.get("AWS_SECRET_KEY")},
 			region: configService.get("AWS_REGION"),
 			apiVersion: "2006-03-01",
-		});
+		};
+
+		const localstack = configService.get("LOCALSTACK_ENDPOINT");
+		if (localstack) {
+			config.endpoint = localstack;
+			config.forcePathStyle = true;
+		}
+
+		this.client = new S3(config);
 		this.bucketName = configService.get("AWS_BUCKET_NAME");
 
 		void this.testConnection();
