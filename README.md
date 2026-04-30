@@ -1,6 +1,6 @@
 # MyDrive API
 
-GraphQL API for [MyDrive](https://github.com/spevnev/MyDrive) built with NestJS, PostgreSQL, and AWS S3.
+GraphQL API for [MyDrive](https://github.com/spievniev/MyDrive) built with NestJS, PostgreSQL, and AWS S3.
 
 ## Prerequisites
 
